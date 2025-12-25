@@ -1,0 +1,1705 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    
+    <!-- ===== PWA & 手机 App 化 ===== -->
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+    <meta name="theme-color" content="#2c5364">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="薪酬计划">
+    <meta name="mobile-web-app-capable" content="yes">
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" href="icons/icon-192.png">
+    <link rel="apple-touch-icon" href="icons/icon-192.png">
+    
+    <title>多月份批量查看 + 自定义明细 + 选择性批量填充 薪酬计划表</title>
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: "Microsoft YaHei", Arial, sans-serif;
+        }
+
+        body {
+            background-color: #f5f7fa;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+            background-color: #fff;
+            border-radius: 16px;
+            box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #2c5364, #203a43, #0f2027);
+            color: #fff;
+            padding: 28px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 30px;
+            margin-bottom: 10px;
+            font-weight: 600;
+            letter-spacing: 1px;
+        }
+
+        .header p {
+            font-size: 16px;
+            opacity: 0.9;
+            letter-spacing: 0.5px;
+        }
+
+        /* 通用折叠模块样式 - 彻底重构 */
+        .collapse-module {
+            border-bottom: 1px solid #e9f0f5;
+        }
+        .collapse-header {
+            padding: 15px 30px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            cursor: pointer;
+            background-color: #f8fafc;
+            position: relative;
+        }
+        .collapse-title {
+            font-size: 16px;
+            color: #2c5364;
+            font-weight: 600;
+        }
+        /* 折叠按钮：纯CSS绘制小箭头，彻底解决图标过大问题 */
+        .collapse-btn {
+            width: 20px;
+            height: 20px;
+            background-color: #2c5364;
+            color: #fff;
+            border: none;
+            border-radius: 50%;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            user-select: none;
+            z-index: 2;
+            padding: 0;
+            position: relative;
+        }
+        .collapse-btn:hover {
+            background-color: #1a2a33;
+            transform: scale(1.05);
+        }
+        /* 纯CSS小箭头 */
+        .collapse-btn::after {
+            content: '';
+            width: 6px;
+            height: 6px;
+            border-right: 1.5px solid #fff;
+            border-bottom: 1.5px solid #fff;
+            transform: rotate(45deg);
+            transition: transform 0.3s ease;
+        }
+        .collapse-btn.collapsed::after {
+            transform: rotate(-135deg);
+        }
+        .collapse-content {
+            transition: all 0.3s ease;
+            display: block;
+        }
+        .collapsed {
+            display: none !important;
+        }
+
+        /* 批量月份选择面板（支持跨年份） */
+        .batch-filter {
+            padding: 20px 30px;
+            background-color: #f8fafc;
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+
+        .filter-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .filter-item label {
+            font-size: 14px;
+            color: #2c5364;
+            font-weight: 600;
+        }
+
+        .filter-item select, .filter-item input {
+            padding: 10px 14px;
+            border: 1px solid #dce6ed;
+            border-radius: 6px;
+            outline: none;
+            font-size: 14px;
+            color: #333;
+            background-color: #fff;
+            min-width: 120px;
+            transition: all 0.2s;
+        }
+
+        .filter-item select:focus, .filter-item input:focus {
+            border-color: #2c5364;
+            box-shadow: 0 0 0 2px rgba(44, 83, 100, 0.1);
+            transform: translateY(-1px);
+        }
+
+        .btn {
+            padding: 10px 18px;
+            background-color: #2c5364;
+            color: #fff;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn:hover {
+            background-color: #1a2a33;
+            transform: translateY(-1px);
+            box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+        }
+
+        .btn-add {
+            background-color: #2e7d32;
+        }
+
+        .btn-add:hover {
+            background-color: #1b5e20;
+        }
+
+        .btn-del {
+            background-color: #c62828;
+        }
+
+        .btn-del:hover {
+            background-color: #8e0000;
+        }
+
+        .btn-batch {
+            background-color: #1976d2;
+        }
+
+        .btn-batch:hover {
+            background-color: #0d47a1;
+        }
+
+        .btn-save {
+            background-color: #f57f17;
+        }
+
+        .btn-save:hover {
+            background-color: #e65100;
+        }
+
+        .btn-fillToPlan {
+            background-color: #7b1fa2;
+        }
+
+        .btn-fillToPlan:hover {
+            background-color: #4a148c;
+        }
+
+        .view-tip {
+            font-size: 13px;
+            color: #666;
+            margin-left: auto;
+            font-style: italic;
+        }
+
+        /* 自定义明细面板 */
+        .custom-item-panel {
+            padding: 15px 30px;
+            background-color: #f0f4f8;
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+
+        .custom-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .custom-item input {
+            width: 180px;
+        }
+
+        /* 批量填充面板 */
+        .batch-fill-panel {
+            padding: 15px 30px;
+            background-color: #e9f0f5;
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+
+        .batch-fill-title {
+            font-size: 14px;
+            color: #2c5364;
+            font-weight: 600;
+        }
+
+        /* 实际支出编辑面板 */
+        .actual-expense-panel {
+            padding: 15px 30px;
+            background-color: #fff8e1;
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+
+        /* 表格区域 */
+        .table-section {
+            padding: 30px;
+        }
+
+        .section-title {
+            font-size: 20px;
+            color: #2c5364;
+            margin-bottom: 16px;
+            padding-bottom: 8px;
+            border-bottom: 2px solid #2c5364;
+            font-weight: 600;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 30px;
+            background-color: #fff;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.05);
+        }
+
+        th {
+            background-color: #e9f0f5;
+            color: #2c5364;
+            padding: 14px;
+            text-align: left;
+            font-size: 14px;
+            font-weight: 600;
+            border-bottom: 2px solid #dce6ed;
+            white-space: nowrap;
+        }
+
+        td {
+            padding: 14px;
+            font-size: 14px;
+            color: #333;
+            border-bottom: 1px solid #f0f4f8;
+            white-space: nowrap;
+        }
+
+        tr:hover {
+            background-color: #f8fafc;
+            transition: background-color 0.2s;
+        }
+
+        input[type="number"] {
+            width: 100px;
+            padding: 8px 12px;
+            border: 1px solid #dce6ed;
+            border-radius: 6px;
+            outline: none;
+            font-size: 14px;
+            color: #333;
+            transition: all 0.2s;
+        }
+
+        input[type="number"]:focus {
+            border-color: #2c5364;
+            box-shadow: 0 0 0 2px rgba(44, 83, 100, 0.1);
+            transform: translateY(-1px);
+        }
+
+        select {
+            padding: 8px 12px;
+            border: 1px solid #dce6ed;
+            border-radius: 6px;
+            outline: none;
+            font-size: 14px;
+            color: #333;
+            background-color: #fff;
+            width: 120px;
+            transition: all 0.2s;
+        }
+
+        select:focus {
+            border-color: #2c5364;
+            box-shadow: 0 0 0 2px rgba(44, 83, 100, 0.1);
+            transform: translateY(-1px);
+        }
+
+        .total-row {
+            background-color: #f0f4f8;
+            font-weight: 600;
+            color: #2c5364;
+        }
+
+        .core-item {
+            background-color: #f8fafc;
+        }
+
+        .risk-red {
+            background-color: #ffebee;
+            color: #c62828;
+            font-weight: 600;
+        }
+
+        .risk-yellow {
+            background-color: #fff8e1;
+            color: #f57f17;
+            font-weight: 600;
+        }
+
+        .safe {
+            background-color: #e8f5e9;
+            color: #2e7d32;
+            font-weight: 600;
+        }
+
+        .result-box {
+            display: flex;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        .result-card {
+            flex: 1;
+            min-width: 250px;
+            padding: 22px;
+            background-color: #f8fafc;
+            border-radius: 10px;
+            border-left: 4px solid #2c5364;
+            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.05);
+            transition: all 0.2s;
+        }
+
+        .result-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.08);
+        }
+
+        .result-card h3 {
+            font-size: 16px;
+            color: #2c5364;
+            margin-bottom: 12px;
+        }
+
+        .result-card .value {
+            font-size: 26px;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .result-card .desc {
+            font-size: 14px;
+            color: #666;
+            margin-top: 8px;
+        }
+
+        /* 多月份汇总表格样式 */
+        .multi-month-table {
+            overflow-x: auto;
+            margin-bottom: 30px;
+            border-radius: 10px;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.05);
+        }
+
+        /* 明细项编辑样式 */
+        .item-name-edit {
+            border: none;
+            background: transparent;
+            font-size: 14px;
+            color: #333;
+            width: 100%;
+            outline: none;
+            cursor: text;
+        }
+
+        .item-name-edit:focus {
+            border-bottom: 1px solid #2c5364;
+        }
+
+        /* 实际支出表格样式 */
+        .actual-expense-table td {
+            background-color: #fff8e1;
+        }
+        
+        /* ===== 手机端 App 体验微调（新增） ===== */
+        @media (max-width: 768px) {
+            body { padding: 10px; }
+            .container {
+                max-width: 100%;
+                border-radius: 12px;
+                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            }
+            input, select, button {
+                font-size: 16px !important; /* 防止iOS缩放 */
+                min-height: 44px; /* 触摸友好 */
+            }
+            table {
+                font-size: 12px;
+            }
+            th, td {
+                padding: 10px 8px;
+            }
+            .header h1 {
+                font-size: 20px;
+                padding: 0 10px;
+            }
+            .header p {
+                font-size: 14px;
+                padding: 0 10px;
+            }
+            .header {
+                padding: 20px 15px;
+            }
+            .filter-item {
+                flex-direction: column;
+                align-items: flex-start;
+                width: 100%;
+            }
+            .filter-item label {
+                margin-bottom: 4px;
+            }
+            .filter-item select, .filter-item input {
+                width: 100%;
+            }
+            .btn {
+                padding: 12px 16px;
+                font-size: 16px;
+            }
+            .result-box {
+                flex-direction: column;
+            }
+            .result-card {
+                min-width: 100%;
+            }
+        }
+        
+        /* ===== 安装提示（新增） ===== */
+        #install-prompt {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: linear-gradient(135deg, #2c5364, #203a43);
+            color: white;
+            padding: 15px 20px;
+            border-radius: 10px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.3);
+            z-index: 1000;
+            display: none;
+            max-width: 300px;
+            animation: slideIn 0.3s ease;
+        }
+        
+        #install-prompt p {
+            margin-bottom: 10px;
+            font-size: 14px;
+        }
+        
+        #install-prompt button {
+            background-color: #fff;
+            color: #2c5364;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            margin-right: 10px;
+        }
+        
+        #install-prompt #close-prompt {
+            background-color: transparent;
+            color: #fff;
+            border: 1px solid #fff;
+        }
+        
+        @keyframes slideIn {
+            from { transform: translateY(100px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+    </style>
+</head>
+<body>
+    <!-- 安装提示框 -->
+    <div id="install-prompt">
+        <p>📱 添加到主屏幕，像App一样使用！</p>
+        <button id="install-btn">立即安装</button>
+        <button id="close-prompt">稍后再说</button>
+    </div>
+    
+    <div class="container">
+        <div class="header">
+            <h1>薪酬计划表</h1>
+            <p>跨年份查看 | 自定义明细 | 批量填充 | 数据本地保存</p>
+        </div>
+
+        <!-- 1. 批量月份选择面板（支持跨年份） -->
+        <div class="collapse-module">
+            <div class="collapse-header" id="header-batchFilter">
+                <div class="collapse-title">批量月份选择（支持跨年份）</div>
+                <button class="collapse-btn" id="btn-batchFilter"></button>
+            </div>
+            <div class="collapse-content" id="content-batchFilter">
+                <div class="batch-filter">
+                    <div class="filter-item">
+                        <label for="start-year">开始年份：</label>
+                        <select id="start-year">
+                            <option value="2024">2024</option>
+                            <option value="2025" selected>2025</option>
+                            <option value="2026">2026</option>
+                            <option value="2027">2027</option>
+                        </select>
+                    </div>
+                    <div class="filter-item">
+                        <label for="start-month">开始月份：</label>
+                        <select id="start-month">
+                            <option value="1">1月</option>
+                            <option value="2">2月</option>
+                            <option value="3">3月</option>
+                            <option value="4">4月</option>
+                            <option value="5">5月</option>
+                            <option value="6">6月</option>
+                            <option value="7">7月</option>
+                            <option value="8">8月</option>
+                            <option value="9">9月</option>
+                            <option value="10">10月</option>
+                            <option value="11">11月</option>
+                            <option value="12">12月</option>
+                        </select>
+                    </div>
+                    <div class="filter-item">
+                        <label for="end-year">结束年份：</label>
+                        <select id="end-year">
+                            <option value="2024">2024</option>
+                            <option value="2025">2025</option>
+                            <option value="2026" selected>2026</option>
+                            <option value="2027">2027</option>
+                        </select>
+                    </div>
+                    <div class="filter-item">
+                        <label for="end-month">结束月份：</label>
+                        <select id="end-month">
+                            <option value="1">1月</option>
+                            <option value="2">2月</option>
+                            <option value="3">3月</option>
+                            <option value="4">4月</option>
+                            <option value="5">5月</option>
+                            <option value="6">6月</option>
+                            <option value="7">7月</option>
+                            <option value="8">8月</option>
+                            <option value="9">9月</option>
+                            <option value="10">10月</option>
+                            <option value="11">11月</option>
+                            <option value="12" selected>12月</option>
+                        </select>
+                    </div>
+                    <button class="btn" id="btn-loadBatch">加载批量月份数据</button>
+                    <button class="btn btn-save" id="btn-saveData">保存当前数据</button>
+                    <div class="view-tip" id="tip-batch">当前批量查看：2025年1月 - 2026年12月 数据</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 2. 批量填充面板 -->
+        <div class="collapse-module">
+            <div class="collapse-header" id="header-batchFill">
+                <div class="collapse-title">固定项选择性批量填充</div>
+                <button class="collapse-btn" id="btn-batchFill"></button>
+            </div>
+            <div class="collapse-content" id="content-batchFill">
+                <div class="batch-fill-panel">
+                    <div class="batch-fill-title">固定项选择性批量填充：</div>
+                    <div class="custom-item">
+                        <label>填充规则：</label>
+                        <select id="select-fillRule">
+                            <option value="all">所有月份（统一金额）</option>
+                            <option value="odd-even">单双月（差异化金额）</option>
+                            <option value="quarter">季度（差异化金额）</option>
+                        </select>
+                    </div>
+                    <div class="custom-item" id="panel-all" style="display: flex;">
+                        <label>统一金额：</label>
+                        <input type="number" id="input-all" placeholder="输入填充金额" min="0" step="0.01">
+                    </div>
+                    <div class="custom-item" id="panel-oddEven" style="display: none;">
+                        <label>单月金额：</label>
+                        <input type="number" id="input-odd" placeholder="单月金额" min="0" step="0.01">
+                        <label>双月金额：</label>
+                        <input type="number" id="input-even" placeholder="双月金额" min="0" step="0.01">
+                    </div>
+                    <div class="custom-item" id="panel-quarter" style="display: none;">
+                        <label>1-3月：</label>
+                        <input type="number" id="input-q1" placeholder="Q1金额" min="0" step="0.01">
+                        <label>4-6月：</label>
+                        <input type="number" id="input-q2" placeholder="Q2金额" min="0" step="0.01">
+                        <label>7-9月：</label>
+                        <input type="number" id="input-q3" placeholder="Q3金额" min="0" step="0.01">
+                        <label>10-12月：</label>
+                        <input type="number" id="input-q4" placeholder="Q4金额" min="0" step="0.01">
+                    </div>
+                    <button class="btn btn-batch" id="btn-doFill">执行批量填充</button>
+                    <span style="font-size:12px;color:#666;">（先选中要填充的固定明细行，再选择规则执行填充）</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- 3. 自定义明细项面板 -->
+        <div class="collapse-module">
+            <div class="collapse-header" id="header-customItem">
+                <div class="collapse-title">自定义明细项管理</div>
+                <button class="collapse-btn" id="btn-customItem"></button>
+            </div>
+            <div class="collapse-content" id="content-customItem">
+                <div class="custom-item-panel">
+                    <div class="custom-item">
+                        <label>新增明细：</label>
+                        <select id="select-itemType">
+                            <option value="income">收入项</option>
+                            <option value="expense">支出项</option>
+                            <option value="debt">负债项</option>
+                        </select>
+                        <input type="text" id="input-itemName" placeholder="输入明细名称（如：年终奖）">
+                        <select id="select-itemFixed">
+                            <option value="固定">固定</option>
+                            <option value="非固定">非固定</option>
+                        </select>
+                        <button class="btn btn-add" id="btn-addItem">添加明细</button>
+                    </div>
+                    <div class="custom-item">
+                        <label>删除选中明细：</label>
+                        <button class="btn btn-del" id="btn-delItem">删除明细</button>
+                        <span style="font-size:12px;color:#666;">（点击明细行选中后删除）</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="table-section">
+            <!-- 4. 多月份明细汇总表 -->
+            <div class="collapse-module">
+                <div class="collapse-header" id="header-summaryTable">
+                    <div class="collapse-title">多月份明细汇总表（收入/支出/负债合并）</div>
+                    <button class="collapse-btn" id="btn-summaryTable"></button>
+                </div>
+                <div class="collapse-content" id="content-summaryTable">
+                    <div class="section-title">
+                        <span>一、多月份明细汇总表（收入/支出/负债合并）</span>
+                        <span style="font-size:14px;color:#666;">点击明细名称可直接修改 | 固定项支持批量填充</span>
+                    </div>
+                    <div class="multi-month-table">
+                        <table id="table-summary">
+                            <thead>
+                                <tr id="tr-monthTh">
+                                    <th>明细类型</th>
+                                    <th>明细名称</th>
+                                    <th>固定/非固定</th>
+                                    <!-- 月份列动态生成（格式：年-月） -->
+                                    <th>批量总计</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tbody-items">
+                                <!-- 动态生成明细行 -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 5. 实际支出编辑面板（移到汇总表下方） -->
+            <div class="collapse-module">
+                <div class="collapse-header" id="header-actualExpense">
+                    <div class="collapse-title">非固定项实际支出编辑（对比+一键填充）</div>
+                    <button class="collapse-btn" id="btn-actualExpense"></button>
+                </div>
+                <div class="collapse-content" id="content-actualExpense">
+                    <div class="actual-expense-panel">
+                        <div class="batch-fill-title">选择月份编辑非固定项实际支出：</div>
+                        <div class="custom-item">
+                            <select id="select-editMonth" disabled>
+                                <option value="">请先加载月份数据</option>
+                            </select>
+                            <button class="btn" id="btn-loadEditMonth">加载该月数据</button>
+                            <button class="btn btn-fillToPlan" id="btn-fillToPlan">一键填充到规划表</button>
+                        </div>
+                        <span style="font-size:12px;color:#666;">（加载后编辑实际支出，填充后同步到对应年月规划数据）</span>
+                    </div>
+                    <div class="table-section">
+                        <div class="section-title">
+                            <span>该月非固定项明细（规划 vs 实际）</span>
+                        </div>
+                        <div class="multi-month-table">
+                            <table id="table-actualExpense" class="actual-expense-table">
+                                <thead>
+                                    <tr>
+                                        <th>明细类型</th>
+                                        <th>明细名称</th>
+                                        <th>规划金额</th>
+                                        <th>实际金额</th>
+                                        <th>偏差金额（实际-规划）</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tbody-actualExpense">
+                                    <tr>
+                                        <td colspan="5" style="text-align: center; color: #666;">请先选择月份并加载数据</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 6. 多月份收支结余汇总 -->
+            <div class="collapse-module">
+                <div class="collapse-header" id="header-balanceTable">
+                    <div class="collapse-title">多月份收支结余汇总</div>
+                    <button class="collapse-btn" id="btn-balanceTable"></button>
+                </div>
+                <div class="collapse-content" id="content-balanceTable">
+                    <div class="section-title">二、多月份收支结余汇总</div>
+                    <div class="multi-month-table">
+                        <table id="table-balance">
+                            <thead>
+                                <tr id="tr-balanceTh">
+                                    <th>统计项目</th>
+                                    <!-- 月份列动态生成（格式：年-月） -->
+                                    <th>批量总计</th>
+                                    <th>状态提示</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tbody-balance">
+                                <tr id="tr-income">
+                                    <td>总收入</td>
+                                    <!-- 月份列动态填充 -->
+                                    <td id="td-totalIncome">0.00</td>
+                                    <td>-</td>
+                                </tr>
+                                <tr id="tr-expense">
+                                    <td>总支出</td>
+                                    <!-- 月份列动态填充 -->
+                                    <td id="td-totalExpense">0.00</td>
+                                    <td>-</td>
+                                </tr>
+                                <tr id="tr-debt">
+                                    <td>总负债还款</td>
+                                    <!-- 月份列动态填充 -->
+                                    <td id="td-totalDebt">0.00</td>
+                                    <td>-</td>
+                                </tr>
+                                <tr class="core-item" id="tr-balance">
+                                    <td>收支结余（收入-支出）</td>
+                                    <!-- 月份列动态填充 -->
+                                    <td id="td-balance">0.00</td>
+                                    <td id="td-balanceStatus">--</td>
+                                </tr>
+                                <tr class="core-item" id="tr-disposable">
+                                    <td>最终可支配余额（结余-负债）</td>
+                                    <!-- 月份列动态填充 -->
+                                    <td id="td-disposable">0.00</td>
+                                    <td id="td-disposableStatus">--</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 7. 可视化结果卡片 -->
+            <div class="collapse-module">
+                <div class="collapse-header" id="header-resultCard">
+                    <div class="collapse-title">数据可视化汇总卡片</div>
+                    <button class="collapse-btn" id="btn-resultCard"></button>
+                </div>
+                <div class="collapse-content" id="content-resultCard">
+                    <div class="result-box">
+                        <div class="result-card">
+                            <h3>批量总收⼊</h3>
+                            <div class="value" id="card-income">¥ 0.00</div>
+                            <div class="desc">所选月份收入总和</div>
+                        </div>
+                        <div class="result-card">
+                            <h3>批量总⽀出</h3>
+                            <div class="value" id="card-expense">¥ 0.00</div>
+                            <div class="desc">所选月份支出总和</div>
+                        </div>
+                        <div class="result-card">
+                            <h3>批量总负债</h3>
+                            <div class="value" id="card-debt">¥ 0.00</div>
+                            <div class="desc">所选月份负债还款总和</div>
+                        </div>
+                        <div class="result-card">
+                            <h3>批量最终可支配余额</h3>
+                            <div class="value" id="card-disposable">¥ 0.00</div>
+                            <div class="desc">所选月份可自由支配资金总和</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 移动端快捷操作栏（新增） -->
+        <div style="display: none;" id="mobile-toolbar">
+            <div style="display: flex; justify-content: space-around; padding: 10px; background: #f5f7fa; border-top: 1px solid #ddd;">
+                <button class="btn" onclick="document.getElementById('btn-saveData').click()">💾 保存</button>
+                <button class="btn" onclick="window.scrollTo({top: 0, behavior: 'smooth'})">⬆️ 顶部</button>
+                <button class="btn" onclick="showInstallPrompt()">📱 安装</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 全局配置（支持跨年份，新增实际支出存储）
+        let globalConfig = {
+            startYear: "2025",
+            endYear: "2026",
+            startMonth: 1,
+            endMonth: 12,
+            months: [], // 格式：["2025-01", "2025-02", ..., "2026-12"]
+            itemTypes: {
+                income: { name: "收入", items: [
+                    { id: "in1", name: "基本工资", isFixed: "固定", planValues: {}, actualValues: {} },
+                    { id: "in2", name: "固定补贴（餐补/交通补）", isFixed: "固定", planValues: {}, actualValues: {} },
+                    { id: "in3", name: "绩效奖金", isFixed: "非固定", planValues: {}, actualValues: {} },
+                    { id: "in4", name: "销售提成", isFixed: "非固定", planValues: {}, actualValues: {} },
+                    { id: "in5", name: "年终奖金（均摊月度）", isFixed: "非固定", planValues: {}, actualValues: {} }
+                ]},
+                expense: { name: "支出", items: [
+                    { id: "ex1", name: "房租/房贷月供", isFixed: "固定", planValues: {}, actualValues: {} },
+                    { id: "ex2", name: "水电燃气费", isFixed: "固定", planValues: {}, actualValues: {} },
+                    { id: "ex3", name: "五险一金个人缴纳", isFixed: "固定", planValues: {}, actualValues: {} },
+                    { id: "ex4", name: "餐饮娱乐", isFixed: "非固定", planValues: {}, actualValues: {} },
+                    { id: "ex5", name: "购物消费", isFixed: "非固定", planValues: {}, actualValues: {} }
+                ]},
+                debt: { name: "负债", items: [
+                    { id: "dt1", name: "车贷月供", isFixed: "固定", planValues: {}, actualValues: {} },
+                    { id: "dt2", name: "信用卡固定还款", isFixed: "固定", planValues: {}, actualValues: {} },
+                    { id: "dt3", name: "临时信用卡账单", isFixed: "非固定", planValues: {}, actualValues: {} }
+                ]}
+            },
+            currentEditMonth: "" // 当前编辑的月份（格式：年-月）
+        };
+
+        // 折叠模块配置（调整实际支出面板位置）
+        const collapseModules = [
+            { headerId: "header-batchFilter", btnId: "btn-batchFilter", contentId: "content-batchFilter" },
+            { headerId: "header-batchFill", btnId: "btn-batchFill", contentId: "content-batchFill" },
+            { headerId: "header-customItem", btnId: "btn-customItem", contentId: "content-customItem" },
+            { headerId: "header-summaryTable", btnId: "btn-summaryTable", contentId: "content-summaryTable" },
+            { headerId: "header-actualExpense", btnId: "btn-actualExpense", contentId: "content-actualExpense" },
+            { headerId: "header-balanceTable", btnId: "btn-balanceTable", contentId: "content-balanceTable" },
+            { headerId: "header-resultCard", btnId: "btn-resultCard", contentId: "content-resultCard" }
+        ];
+
+        // 初始化月份数组（支持跨年份）
+        function initMonths() {
+            globalConfig.months = [];
+            let startY = parseInt(globalConfig.startYear);
+            let endY = parseInt(globalConfig.endYear);
+            let startM = globalConfig.startMonth;
+            let endM = globalConfig.endMonth;
+
+            // 遍历年份
+            for (let y = startY; y <= endY; y++) {
+                // 确定当前年的开始和结束月份
+                let curStartM = (y === startY) ? startM : 1;
+                let curEndM = (y === endY) ? endM : 12;
+                // 遍历当前年的月份
+                for (let m = curStartM; m <= curEndM; m++) {
+                    let monthKey = `${y}-${m.toString().padStart(2, "0")}`;
+                    globalConfig.months.push(monthKey);
+                }
+            }
+
+            // 初始化明细项的规划值和实际值
+            const allItems = [
+                ...globalConfig.itemTypes.income.items,
+                ...globalConfig.itemTypes.expense.items,
+                ...globalConfig.itemTypes.debt.items
+            ];
+            allItems.forEach(item => {
+                globalConfig.months.forEach(monthKey => {
+                    if (!item.planValues[monthKey]) item.planValues[monthKey] = "";
+                    if (!item.actualValues[monthKey]) item.actualValues[monthKey] = "";
+                });
+            });
+
+            // 更新月份选择下拉框
+            updateEditMonthSelect();
+        }
+
+        // 格式化数字为两位小数
+        function formatNum(num) {
+            return parseFloat(num || 0).toFixed(2);
+        }
+
+        // 切换折叠状态
+        function toggleCollapse(contentId, btnId) {
+            const content = document.getElementById(contentId);
+            const btn = document.getElementById(btnId);
+            if (!content || !btn) return;
+            
+            const isCollapsed = content.classList.contains("collapsed");
+            if (isCollapsed) {
+                content.classList.remove("collapsed");
+                btn.classList.remove("collapsed");
+            } else {
+                content.classList.add("collapsed");
+                btn.classList.add("collapsed");
+            }
+        }
+
+        // 更新批量提示文本（跨年份）
+        function updateBatchTip() {
+            const startYear = document.getElementById("start-year").value;
+            const startMonth = document.getElementById("start-month").value;
+            const endYear = document.getElementById("end-year").value;
+            const endMonth = document.getElementById("end-month").value;
+            const startText = `${startYear}年${document.getElementById("start-month").options[startMonth-1].text}`;
+            const endText = `${endYear}年${document.getElementById("end-month").options[endMonth-1].text}`;
+            document.getElementById("tip-batch").textContent = `当前批量查看：${startText} - ${endText} 数据`;
+        }
+
+        // 切换填充金额面板
+        function switchFillPanel() {
+            const rule = document.getElementById("select-fillRule").value;
+            const panelAll = document.getElementById("panel-all");
+            const panelOddEven = document.getElementById("panel-oddEven");
+            const panelQuarter = document.getElementById("panel-quarter");
+
+            panelAll.style.display = "none";
+            panelOddEven.style.display = "none";
+            panelQuarter.style.display = "none";
+
+            if (rule === "all") panelAll.style.display = "flex";
+            else if (rule === "odd-even") panelOddEven.style.display = "flex";
+            else if (rule === "quarter") panelQuarter.style.display = "flex";
+        }
+
+        // 更新实际支出编辑的月份选择下拉框
+        function updateEditMonthSelect() {
+            const select = document.getElementById("select-editMonth");
+            select.innerHTML = "";
+            if (globalConfig.months.length === 0) {
+                select.innerHTML = "<option value=''>请先加载月份数据</option>";
+                select.disabled = true;
+                return;
+            }
+            globalConfig.months.forEach(monthKey => {
+                const option = document.createElement("option");
+                option.value = monthKey;
+                option.textContent = monthKey.replace("-", "年") + "月";
+                select.appendChild(option);
+            });
+            select.disabled = false;
+        }
+
+        // 生成月份表头和结余表月份列（跨年份格式：年-月）
+        function generateMonthColumns() {
+            // 清空原有月份列
+            document.querySelectorAll(".month-col").forEach(el => el.remove());
+
+            // 生成汇总表月份表头
+            const monthTr = document.getElementById("tr-monthTh");
+            // 生成结余表月份表头
+            const balanceTr = document.getElementById("tr-balanceTh");
+            // 生成结余表数据列
+            const balanceRows = document.querySelectorAll("#tbody-balance tr");
+
+            globalConfig.months.forEach(monthKey => {
+                const monthText = monthKey.replace("-", "年") + "月";
+
+                // 汇总表表头
+                const th1 = document.createElement("th");
+                th1.className = "month-col";
+                th1.textContent = monthText;
+                monthTr.insertBefore(th1, monthTr.querySelector("th:nth-last-child(2)"));
+
+                // 结余表表头
+                const th2 = document.createElement("th");
+                th2.className = "month-col";
+                th2.textContent = monthText;
+                balanceTr.insertBefore(th2, balanceTr.querySelector("th:nth-last-child(2)"));
+
+                // 结余表数据列
+                balanceRows.forEach(tr => {
+                    const td = document.createElement("td");
+                    td.className = "month-col";
+                    td.textContent = "0.00";
+                    tr.insertBefore(td, tr.querySelector("td:nth-last-child(2)"));
+                });
+            });
+        }
+
+        // 生成明细行（规划值）
+        function generateItemRows() {
+            const tbody = document.getElementById("tbody-items");
+            tbody.innerHTML = "";
+
+            for (const typeKey in globalConfig.itemTypes) {
+                const type = globalConfig.itemTypes[typeKey];
+                type.items.forEach(item => {
+                    const tr = document.createElement("tr");
+                    tr.dataset.id = item.id;
+                    tr.dataset.type = typeKey;
+                    tr.style.backgroundColor = item.isFixed === "固定" ? "#f0f8fb" : "";
+
+                    // 行选中事件
+                    tr.onclick = function() {
+                        document.querySelectorAll("#tbody-items tr").forEach(t => {
+                            t.style.backgroundColor = t.dataset.type ? (t.dataset.isFixed === "固定" ? "#f0f8fb" : "") : "";
+                        });
+                        this.style.backgroundColor = "#e9f0f5";
+                    };
+
+                    // 明细类型列
+                    const td1 = document.createElement("td");
+                    td1.textContent = type.name;
+                    tr.appendChild(td1);
+
+                    // 明细名称列（可编辑）
+                    const td2 = document.createElement("td");
+                    const nameInput = document.createElement("input");
+                    nameInput.className = "item-name-edit";
+                    nameInput.value = item.name;
+                    nameInput.onblur = function() {
+                        item.name = this.value.trim() || "未命名明细";
+                        this.value = item.name;
+                        // 更新实际支出表格
+                        if (globalConfig.currentEditMonth) loadActualExpenseTable();
+                    };
+                    td2.appendChild(nameInput);
+                    tr.appendChild(td2);
+
+                    // 固定/非固定列
+                    const td3 = document.createElement("td");
+                    const fixedSelect = document.createElement("select");
+                    fixedSelect.innerHTML = `<option value="固定" ${item.isFixed === "固定" ? "selected" : ""}>固定</option><option value="非固定" ${item.isFixed === "非固定" ? "selected" : ""}>非固定</option>`;
+                    fixedSelect.onchange = function() {
+                        item.isFixed = this.value;
+                        tr.style.backgroundColor = item.isFixed === "固定" ? "#f0f8fb" : "";
+                        generateItemRows();
+                        // 更新实际支出表格（切换固定/非固定后刷新）
+                        if (globalConfig.currentEditMonth) loadActualExpenseTable();
+                    };
+                    td3.appendChild(fixedSelect);
+                    tr.appendChild(td3);
+
+                    // 月份规划值列
+                    globalConfig.months.forEach(monthKey => {
+                        const td = document.createElement("td");
+                        const input = document.createElement("input");
+                        input.type = "number";
+                        input.min = 0;
+                        input.step = 0.01;
+                        input.value = item.planValues[monthKey] || "";
+                        input.oninput = function() {
+                            item.planValues[monthKey] = parseFloat(this.value || 0);
+                            calculateAll();
+                            // 更新实际支出表格（若当前编辑该月）
+                            if (globalConfig.currentEditMonth === monthKey) loadActualExpenseTable();
+                        };
+                        td.appendChild(input);
+                        tr.appendChild(td);
+                    });
+
+                    // 批量总计列
+                    const totalTd = document.createElement("td");
+                    const total = globalConfig.months.reduce((sum, monthKey) => sum + parseFloat(item.planValues[monthKey] || 0), 0);
+                    totalTd.textContent = formatNum(total);
+                    tr.appendChild(totalTd);
+
+                    // 操作列
+                    const opTd = document.createElement("td");
+                    const delBtn = document.createElement("button");
+                    delBtn.className = "btn btn-del";
+                    delBtn.style.padding = "4px 8px";
+                    delBtn.style.fontSize = "12px";
+                    delBtn.textContent = "删除";
+                    delBtn.onclick = function(e) {
+                        e.stopPropagation();
+                        deleteItem(item.id, typeKey, item.name);
+                    };
+                    opTd.appendChild(delBtn);
+                    tr.appendChild(opTd);
+
+                    tbody.appendChild(tr);
+                });
+            }
+        }
+
+        // 生成实际支出表格（仅显示非固定项）
+        function loadActualExpenseTable() {
+            const monthKey = globalConfig.currentEditMonth;
+            const tbody = document.getElementById("tbody-actualExpense");
+            tbody.innerHTML = "";
+
+            if (!monthKey || !globalConfig.months.includes(monthKey)) {
+                const tr = document.createElement("tr");
+                tr.innerHTML = `<td colspan="5" style="text-align: center; color: #666;">请先选择月份并加载数据</td>`;
+                tbody.appendChild(tr);
+                return;
+            }
+
+            // 筛选所有非固定项
+            const nonFixedItems = [];
+            for (const typeKey in globalConfig.itemTypes) {
+                const type = globalConfig.itemTypes[typeKey];
+                const items = type.items.filter(item => item.isFixed === "非固定");
+                items.forEach(item => {
+                    nonFixedItems.push({ ...item, typeName: type.name, typeKey: typeKey });
+                });
+            }
+
+            if (nonFixedItems.length === 0) {
+                const tr = document.createElement("tr");
+                tr.innerHTML = `<td colspan="5" style="text-align: center; color: #666;">暂无非固定项明细</td>`;
+                tbody.appendChild(tr);
+                return;
+            }
+
+            // 生成非固定项明细行
+            nonFixedItems.forEach(item => {
+                const tr = document.createElement("tr");
+                const planVal = parseFloat(item.planValues[monthKey] || 0);
+                const actualVal = parseFloat(item.actualValues[monthKey] || 0);
+                const diffVal = actualVal - planVal;
+
+                // 明细类型列
+                const td1 = document.createElement("td");
+                td1.textContent = item.typeName;
+                tr.appendChild(td1);
+
+                // 明细名称列
+                const td2 = document.createElement("td");
+                td2.textContent = item.name;
+                tr.appendChild(td2);
+
+                // 规划金额列
+                const td3 = document.createElement("td");
+                td3.textContent = formatNum(planVal);
+                tr.appendChild(td3);
+
+                // 实际金额（可编辑）
+                const td4 = document.createElement("td");
+                const input = document.createElement("input");
+                input.type = "number";
+                input.min = 0;
+                input.step = 0.01;
+                input.value = formatNum(actualVal);
+                input.oninput = function() {
+                    item.actualValues[monthKey] = parseFloat(this.value || 0);
+                    // 更新偏差金额
+                    const newDiff = parseFloat(this.value || 0) - planVal;
+                    td5.textContent = formatNum(newDiff);
+                    // 标记偏差样式
+                    if (newDiff > 0) {
+                        td5.style.color = "#c62828";
+                        td5.style.fontWeight = "600";
+                    } else if (newDiff < 0) {
+                        td5.style.color = "#2e7d32";
+                        td5.style.fontWeight = "600";
+                    } else {
+                        td5.style.color = "#333";
+                        td5.style.fontWeight = "normal";
+                    }
+                };
+                td4.appendChild(input);
+                tr.appendChild(td4);
+
+                // 偏差金额
+                const td5 = document.createElement("td");
+                td5.textContent = formatNum(diffVal);
+                if (diffVal > 0) {
+                    td5.style.color = "#c62828";
+                    td5.style.fontWeight = "600";
+                } else if (diffVal < 0) {
+                    td5.style.color = "#2e7d32";
+                    td5.style.fontWeight = "600";
+                }
+                tr.appendChild(td5);
+
+                tbody.appendChild(tr);
+            });
+
+            // 添加总计行
+            const totalTr = document.createElement("tr");
+            totalTr.className = "total-row";
+            const totalPlan = nonFixedItems.reduce((sum, item) => sum + parseFloat(item.planValues[monthKey] || 0), 0);
+            const totalActual = nonFixedItems.reduce((sum, item) => sum + parseFloat(item.actualValues[monthKey] || 0), 0);
+            const totalDiff = totalActual - totalPlan;
+
+            totalTr.innerHTML = `
+                <td>总计</td>
+                <td>-</td>
+                <td>${formatNum(totalPlan)}</td>
+                <td>${formatNum(totalActual)}</td>
+                <td style="${totalDiff > 0 ? 'color: #c62828; font-weight: 600;' : totalDiff < 0 ? 'color: #2e7d32; font-weight: 600;' : 'color: #333;'}">${formatNum(totalDiff)}</td>
+            `;
+            tbody.appendChild(totalTr);
+        }
+
+        // 一键填充实际支出到规划表对应年月
+        function fillActualToPlan() {
+            const monthKey = globalConfig.currentEditMonth;
+            if (!monthKey || !globalConfig.months.includes(monthKey)) {
+                alert("请先加载要填充的月份实际支出数据！");
+                return;
+            }
+
+            // 筛选所有非固定项
+            const nonFixedItems = [];
+            for (const typeKey in globalConfig.itemTypes) {
+                const type = globalConfig.itemTypes[typeKey];
+                const items = type.items.filter(item => item.isFixed === "非固定");
+                nonFixedItems.push(...items);
+            }
+
+            if (nonFixedItems.length === 0) {
+                alert("暂无非固定项可填充！");
+                return;
+            }
+
+            // 同步实际值到规划值
+            nonFixedItems.forEach(item => {
+                item.planValues[monthKey] = parseFloat(item.actualValues[monthKey] || 0);
+            });
+
+            // 刷新表格和统计数据
+            generateItemRows();
+            calculateAll();
+            alert(`已将【${monthKey.replace("-", "年")}月】的非固定项实际支出一键填充到规划表！`);
+        }
+
+        // 计算所有统计数据（规划值）
+        function calculateAll() {
+            // 1. 计算每个明细项规划值总计
+            document.querySelectorAll("#tbody-items tr").forEach(tr => {
+                const itemId = tr.dataset.id;
+                const typeKey = tr.dataset.type;
+                const item = globalConfig.itemTypes[typeKey].items.find(i => i.id === itemId);
+                if (!item) return;
+
+                const total = globalConfig.months.reduce((sum, monthKey) => sum + parseFloat(item.planValues[monthKey] || 0), 0);
+                tr.querySelector("td:nth-last-child(2)").textContent = formatNum(total);
+            });
+
+            // 2. 计算月份统计和批量总计
+            const monthStats = {};
+            let totalIncome = 0, totalExpense = 0, totalDebt = 0, totalBalance = 0, totalDisposable = 0;
+
+            // 初始化月份统计
+            globalConfig.months.forEach(monthKey => {
+                monthStats[monthKey] = { income: 0, expense: 0, debt: 0, balance: 0, disposable: 0 };
+            });
+
+            // 收入统计
+            globalConfig.itemTypes.income.items.forEach(item => {
+                globalConfig.months.forEach(monthKey => {
+                    monthStats[monthKey].income += parseFloat(item.planValues[monthKey] || 0);
+                });
+            });
+
+            // 支出统计
+            globalConfig.itemTypes.expense.items.forEach(item => {
+                globalConfig.months.forEach(monthKey => {
+                    monthStats[monthKey].expense += parseFloat(item.planValues[monthKey] || 0);
+                });
+            });
+
+            // 负债统计
+            globalConfig.itemTypes.debt.items.forEach(item => {
+                globalConfig.months.forEach(monthKey => {
+                    monthStats[monthKey].debt += parseFloat(item.planValues[monthKey] || 0);
+                });
+            });
+
+            // 计算结余和批量总计
+            globalConfig.months.forEach(monthKey => {
+                monthStats[monthKey].balance = monthStats[monthKey].income - monthStats[monthKey].expense;
+                monthStats[monthKey].disposable = monthStats[monthKey].balance - monthStats[monthKey].debt;
+
+                totalIncome += monthStats[monthKey].income;
+                totalExpense += monthStats[monthKey].expense;
+                totalDebt += monthStats[monthKey].debt;
+                totalBalance += monthStats[monthKey].balance;
+                totalDisposable += monthStats[monthKey].disposable;
+            });
+
+            // 3. 更新结余表数据
+            const incomeRow = document.getElementById("tr-income");
+            const expenseRow = document.getElementById("tr-expense");
+            const debtRow = document.getElementById("tr-debt");
+            const balanceRow = document.getElementById("tr-balance");
+            const disposableRow = document.getElementById("tr-disposable");
+
+            const incomeTds = incomeRow.querySelectorAll(".month-col");
+            const expenseTds = expenseRow.querySelectorAll(".month-col");
+            const debtTds = debtRow.querySelectorAll(".month-col");
+            const balanceTds = balanceRow.querySelectorAll(".month-col");
+            const disposableTds = disposableRow.querySelectorAll(".month-col");
+
+            globalConfig.months.forEach((monthKey, idx) => {
+                incomeTds[idx].textContent = formatNum(monthStats[monthKey].income);
+                expenseTds[idx].textContent = formatNum(monthStats[monthKey].expense);
+                debtTds[idx].textContent = formatNum(monthStats[monthKey].debt);
+                balanceTds[idx].textContent = formatNum(monthStats[monthKey].balance);
+                disposableTds[idx].textContent = formatNum(monthStats[monthKey].disposable);
+            });
+
+            // 更新批量总计
+            document.getElementById("td-totalIncome").textContent = formatNum(totalIncome);
+            document.getElementById("td-totalExpense").textContent = formatNum(totalExpense);
+            document.getElementById("td-totalDebt").textContent = formatNum(totalDebt);
+            document.getElementById("td-balance").textContent = formatNum(totalBalance);
+            document.getElementById("td-disposable").textContent = formatNum(totalDisposable);
+
+            // 更新状态提示
+            const balanceStatus = document.getElementById("td-balanceStatus");
+            const disposableStatus = document.getElementById("td-disposableStatus");
+            if (totalBalance < 0) {
+                balanceRow.className = "core-item risk-red";
+                balanceStatus.textContent = "整体赤字（风险）";
+            } else {
+                balanceRow.className = "core-item safe";
+                balanceStatus.textContent = "整体盈余（安全）";
+            }
+
+            if (totalDisposable < 0) {
+                disposableRow.className = "core-item risk-red";
+                disposableStatus.textContent = "整体资金缺口（风险）";
+            } else {
+                disposableRow.className = "core-item safe";
+                disposableStatus.textContent = "整体资金剩余（可储蓄/投资）";
+            }
+
+            // 4. 更新可视化卡片
+            document.getElementById("card-income").textContent = "¥ " + formatNum(totalIncome);
+            document.getElementById("card-expense").textContent = "¥ " + formatNum(totalExpense);
+            document.getElementById("card-debt").textContent = "¥ " + formatNum(totalDebt);
+            document.getElementById("card-disposable").textContent = "¥ " + formatNum(totalDisposable);
+        }
+
+        // 加载批量月份数据（跨年份）
+        function loadBatchData() {
+            const startYear = document.getElementById("start-year").value;
+            const startMonth = parseInt(document.getElementById("start-month").value);
+            const endYear = document.getElementById("end-year").value;
+            const endMonth = parseInt(document.getElementById("end-month").value);
+
+            // 校验：开始年份>结束年份 或 同一年开始月份>结束月份
+            if (parseInt(startYear) > parseInt(endYear) || 
+                (parseInt(startYear) === parseInt(endYear) && startMonth > endMonth)) {
+                alert("开始时间不能晚于结束时间！");
+                return;
+            }
+
+            globalConfig.startYear = startYear;
+            globalConfig.endYear = endYear;
+            globalConfig.startMonth = startMonth;
+            globalConfig.endMonth = endMonth;
+
+            initMonths();
+            updateBatchTip();
+            generateMonthColumns();
+            generateItemRows();
+            calculateAll();
+        }
+
+        // 保存数据到本地存储
+        function saveData() {
+            try {
+                localStorage.setItem("salaryPlanData", JSON.stringify(globalConfig));
+                alert("数据保存成功！下次打开页面将自动加载该数据");
+            } catch (e) {
+                alert("数据保存失败：" + e.message);
+            }
+        }
+
+        // 从本地存储加载数据
+        function loadSavedData() {
+            try {
+                const savedData = localStorage.getItem("salaryPlanData");
+                if (savedData) {
+                    globalConfig = JSON.parse(savedData);
+                    alert("已加载本地保存的数据");
+                }
+            } catch (e) {
+                console.log("加载本地数据失败：", e.message);
+            }
+        }
+
+        // 新增明细项
+        function addItem() {
+            const typeKey = document.getElementById("select-itemType").value;
+            const itemName = document.getElementById("input-itemName").value.trim() || `自定义${globalConfig.itemTypes[typeKey].name}项`;
+            const isFixed = document.getElementById("select-itemFixed").value;
+            const newId = typeKey + Date.now();
+
+            globalConfig.itemTypes[typeKey].items.push({
+                id: newId,
+                name: itemName,
+                isFixed: isFixed,
+                planValues: {},
+                actualValues: {}
+            });
+
+            initMonths();
+            generateItemRows();
+            calculateAll();
+            document.getElementById("input-itemName").value = "";
+            alert(`成功添加【${itemName}】明细项！`);
+        }
+
+        // 删除明细项
+        function deleteItem(itemId, typeKey, itemName) {
+            if (confirm(`确定删除【${itemName}】？删除后不可恢复！`)) {
+                globalConfig.itemTypes[typeKey].items = globalConfig.itemTypes[typeKey].items.filter(i => i.id !== itemId);
+                generateItemRows();
+                calculateAll();
+                // 更新实际支出表格
+                if (globalConfig.currentEditMonth) loadActualExpenseTable();
+                alert(`成功删除【${itemName}】明细项！`);
+            }
+        }
+
+        // 删除选中明细项
+        function deleteSelectedItem() {
+            const selectedTr = document.querySelector("#tbody-items tr[style*='background-color: rgb(233, 240, 245)']");
+            if (!selectedTr) {
+                alert("请先点击明细行选中要删除的项！");
+                return;
+            }
+
+            const itemId = selectedTr.dataset.id;
+            const typeKey = selectedTr.dataset.type;
+            const itemName = selectedTr.querySelector(".item-name-edit").value;
+            deleteItem(itemId, typeKey, itemName);
+        }
+
+        // 批量填充规划数据
+        function doBatchFill() {
+            const selectedTr = document.querySelector("#tbody-items tr[style*='background-color: rgb(233, 240, 245)']");
+            if (!selectedTr) {
+                alert("请先选中要填充的明细行！");
+                return;
+            }
+
+            const itemId = selectedTr.dataset.id;
+            const typeKey = selectedTr.dataset.type;
+            const item = globalConfig.itemTypes[typeKey].items.find(i => i.id === itemId);
+            if (!item) return;
+
+            const rule = document.getElementById("select-fillRule").value;
+            let fillSuccess = false;
+
+            switch (rule) {
+                case "all":
+                    const allVal = parseFloat(document.getElementById("input-all").value || 0);
+                    if (allVal < 0) { alert("金额不能为负数！"); return; }
+                    globalConfig.months.forEach(monthKey => item.planValues[monthKey] = allVal);
+                    fillSuccess = true;
+                    break;
+                case "odd-even":
+                    const oddVal = parseFloat(document.getElementById("input-odd").value || 0);
+                    const evenVal = parseFloat(document.getElementById("input-even").value || 0);
+                    if (oddVal < 0 || evenVal < 0) { alert("金额不能为负数！"); return; }
+                    globalConfig.months.forEach(monthKey => {
+                        const month = parseInt(monthKey.split("-")[1]);
+                        item.planValues[monthKey] = month % 2 === 1 ? oddVal : evenVal;
+                    });
+                    fillSuccess = true;
+                    break;
+                case "quarter":
+                    const q1 = parseFloat(document.getElementById("input-q1").value || 0);
+                    const q2 = parseFloat(document.getElementById("input-q2").value || 0);
+                    const q3 = parseFloat(document.getElementById("input-q3").value || 0);
+                    const q4 = parseFloat(document.getElementById("input-q4").value || 0);
+                    if ([q1,q2,q3,q4].some(v => v < 0)) { alert("金额不能为负数！"); return; }
+                    globalConfig.months.forEach(monthKey => {
+                        const month = parseInt(monthKey.split("-")[1]);
+                        let val = q1;
+                        if (month > 3 && month <=6) val = q2;
+                        else if (month >6 && month <=9) val = q3;
+                        else if (month >9) val = q4;
+                        item.planValues[monthKey] = val;
+                    });
+                    fillSuccess = true;
+                    break;
+            }
+
+            if (fillSuccess) {
+                generateItemRows();
+                calculateAll();
+                // 清空输入框
+                ["input-all", "input-odd", "input-even", "input-q1", "input-q2", "input-q3", "input-q4"].forEach(id => {
+                    document.getElementById(id).value = "";
+                });
+                alert(`成功为【${item.name}】批量填充规划数据！`);
+            }
+        }
+
+        // 加载选中月份的实际支出数据
+        function loadEditMonthData() {
+            const monthKey = document.getElementById("select-editMonth").value;
+            if (!monthKey) {
+                alert("请先选择要编辑的月份！");
+                return;
+            }
+            globalConfig.currentEditMonth = monthKey;
+            loadActualExpenseTable();
+            alert(`已加载【${monthKey.replace("-", "年")}月】的非固定项实际支出数据！`);
+        }
+
+        // ===== PWA 安装功能（新增） =====
+        let deferredPrompt;
+        
+        // 显示安装提示
+        function showInstallPrompt() {
+            const prompt = document.getElementById('install-prompt');
+            prompt.style.display = 'block';
+        }
+        
+        // 隐藏安装提示
+        function hideInstallPrompt() {
+            const prompt = document.getElementById('install-prompt');
+            prompt.style.display = 'none';
+        }
+        
+        // 检测是否移动端
+        function isMobile() {
+            return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+        }
+        
+        // 显示移动端工具栏
+        function showMobileToolbar() {
+            if (isMobile()) {
+                document.getElementById('mobile-toolbar').style.display = 'block';
+            }
+        }
+
+        // 页面加载完成后初始化
+        window.onload = function() {
+            console.log("页面完全加载，初始化功能");
+
+            // 1. 加载本地保存的数据
+            loadSavedData();
+
+            // 2. 初始化月份和界面
+            initMonths();
+            updateBatchTip();
+            generateMonthColumns();
+            generateItemRows();
+            calculateAll();
+            switchFillPanel();
+            loadActualExpenseTable();
+            
+            // 3. 显示移动端工具栏
+            showMobileToolbar();
+
+            // 4. 绑定折叠模块事件
+            collapseModules.forEach(module => {
+                // 头部点击事件
+                document.getElementById(module.headerId).onclick = function() {
+                    toggleCollapse(module.contentId, module.btnId);
+                };
+                // 按钮点击事件（阻止冒泡）
+                document.getElementById(module.btnId).onclick = function(e) {
+                    e.stopPropagation();
+                    toggleCollapse(module.contentId, module.btnId);
+                };
+            });
+
+            // 5. 绑定其他事件
+            // 年份/月份选择变化
+            document.getElementById("start-year").onchange = updateBatchTip;
+            document.getElementById("start-month").onchange = updateBatchTip;
+            document.getElementById("end-year").onchange = updateBatchTip;
+            document.getElementById("end-month").onchange = updateBatchTip;
+            // 加载批量数据
+            document.getElementById("btn-loadBatch").onclick = loadBatchData;
+            // 保存数据
+            document.getElementById("btn-saveData").onclick = saveData;
+            // 填充规则变化
+            document.getElementById("select-fillRule").onchange = switchFillPanel;
+            // 执行批量填充
+            document.getElementById("btn-doFill").onclick = doBatchFill;
+            // 新增明细
+            document.getElementById("btn-addItem").onclick = addItem;
+            // 删除选中明细
+            document.getElementById("btn-delItem").onclick = deleteSelectedItem;
+            // 加载编辑月份数据
+            document.getElementById("btn-loadEditMonth").onclick = loadEditMonthData;
+            // 一键填充实际到规划
+            document.getElementById("btn-fillToPlan").onclick = fillActualToPlan;
+            
+            // 6. PWA 安装事件绑定
+            document.getElementById('install-btn').onclick = function() {
+                if (deferredPrompt) {
+                    deferredPrompt.prompt();
+                    deferredPrompt.userChoice.then(choiceResult => {
+                        if (choiceResult.outcome === 'accepted') {
+                            console.log('用户同意安装');
+                        }
+                        deferredPrompt = null;
+                        hideInstallPrompt();
+                    });
+                }
+            };
+            
+            document.getElementById('close-prompt').onclick = hideInstallPrompt;
+            
+            // 7. 监听PWA安装事件
+            window.addEventListener('beforeinstallprompt', (e) => {
+                e.preventDefault();
+                deferredPrompt = e;
+                // 显示安装按钮
+                setTimeout(showInstallPrompt, 3000);
+            });
+
+            console.log("功能初始化完成");
+        };
+    </script>
+    
+    <!-- ================= PWA Service Worker 注册 ================= -->
+    <script>
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+            navigator.serviceWorker.register('./service-worker.js')
+                .then(() => console.log('PWA Service Worker 注册成功'))
+                .catch(err => console.error('Service Worker 注册失败', err));
+        });
+    }
+    </script>
+</body>
+</html>

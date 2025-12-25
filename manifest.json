@@ -1,0 +1,26 @@
+{
+  "name": "薪酬计划表",
+  "short_name": "薪酬计划",
+  "description": "多月份批量查看 + 自定义明细 + 选择性批量填充",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#2c5364",
+  "theme_color": "#2c5364",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["finance", "productivity"],
+  "lang": "zh-CN"
+}
